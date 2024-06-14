@@ -32,6 +32,7 @@
 
    ### Arguments
    * `conn` – a [[java.sql.Connection]] database connection.
+   * `company-id`- UUID of the company (client) for which is job is being enqueued
    * `job-type` – a keyword that identifies the job type. The job type will be passed to your handler function (see
        second argument to [[proletarian.worker/create-queue-worker]]) as the first argument. Optionally implement the
        [[retry-strategy]] multimethod for this keyword to describe the retry strategy for this job type.
@@ -58,7 +59,7 @@
        [[java.util.UUID/randomUUID]].
    * `:proletarian/clock` – the [[java.time.Clock]] to use for getting the current time. Used in testing. The default is
        [[java.time.Clock/systemUTC]]."
-  [conn job-type payload & {:keys [process-at process-in]
+  [conn company-id job-type payload & {:keys [process-at process-in]
                             :proletarian/keys [queue job-table serializer uuid-fn clock]
                             :or {queue db/DEFAULT_QUEUE
                                  job-table db/DEFAULT_JOB_TABLE
@@ -73,6 +74,7 @@
     (db/enqueue! conn
                  {::db/job-table job-table, ::db/serializer serializer}
                  {::job-id job-id
+                  ::company-id company-id
                   ::queue queue
                   ::job-type job-type
                   ::payload payload

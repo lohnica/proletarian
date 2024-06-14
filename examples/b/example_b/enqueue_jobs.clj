@@ -13,13 +13,14 @@
   (let [ds (jdbc/get-datasource (:jdbc-url examples/config))]
     (examples/preamble ds)
     (let [conn (jdbc/get-connection ds)
-          job-type ::sometimes-failing]
+          job-type ::sometimes-failing
+          company-id (random-uuid)]
       (loop [batch-no 1]
         (println "Adding 10 new jobs to :proletarian/default queue:")
         (dotimes [i 10]
           (let [payload {:batch-no batch-no
                          :counter i}
-                job-id (job/enqueue! conn job-type payload)]
+                job-id (job/enqueue! conn company-id job-type payload)]
             (puget/cprint {:job-id job-id
                            :job-type ::echo
                            :payload payload})))

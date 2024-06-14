@@ -17,30 +17,31 @@
   (memoize
     (fn [job-table]
       (format
-        "INSERT INTO %s (job_id, queue, job_type, payload, attempts, enqueued_at, process_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO %s (job_id, company_id, queue, job_type, payload, attempts, enqueued_at, process_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         job-table))))
 
 (defn enqueue!
   [^Connection conn
    {::keys [job-table serializer]}
-   {:proletarian.job/keys [job-id queue job-type payload attempts enqueued-at process-at]}]
+   {:proletarian.job/keys [job-id company-id queue job-type payload attempts enqueued-at process-at]}]
   (with-open [stmt (.prepareStatement conn (enqueue-sql job-table))]
     (doto stmt
       (.setObject 1 job-id)
-      (.setString 2 (str queue))
-      (.setString 3 (str job-type))
-      (.setString 4 (p/encode serializer payload))
-      (.setInt 5 attempts)
-      (.setTimestamp 6 (Timestamp/from ^Instant enqueued-at))
-      (.setTimestamp 7 (Timestamp/from ^Instant process-at))
+      (.setObject 2 company-id)
+      (.setString 3 (str queue))
+      (.setString 4 (str job-type))
+      (.setString 5 (p/encode serializer payload))
+      (.setInt 6 attempts)
+      (.setTimestamp 7 (Timestamp/from ^Instant enqueued-at))
+      (.setTimestamp 8 (Timestamp/from ^Instant process-at))
       (.executeUpdate))))
 
 (def get-next-job-sql
   (memoize
     (fn [job-table]
       (format
-        "SELECT job_id, queue, job_type, payload, attempts, enqueued_at, process_at FROM %s
+        "SELECT job_id, company_id, queue, job_type, payload, attempts, enqueued_at, process_at FROM %s
          WHERE
            queue = ?
            AND process_at <= ?
@@ -58,34 +59,37 @@
     (let [rs (.executeQuery stmt)]
       (when (.next rs)
         #:proletarian.job{:job-id (.getObject rs 1 UUID)
-                          :queue (edn/read-string (.getString rs 2))
-                          :job-type (edn/read-string (.getString rs 3))
-                          :payload (p/decode serializer (.getString rs 4))
-                          :attempts (.getInt rs 5)
-                          :enqueued-at (.toInstant (.getTimestamp rs 6))
-                          :process-at (.toInstant (.getTimestamp rs 7))}))))
+                          :company-id (.getObject rs 2 UUID)
+                          :queue (edn/read-string (.getString rs 3))
+                          :job-type (edn/read-string (.getString rs 4))
+                          :payload (p/decode serializer (.getString rs 5))
+                          :attempts (.getInt rs 6)
+                          :enqueued-at (.toInstant (.getTimestamp rs 7))
+                          :process-at (.toInstant (.getTimestamp rs 8))}))))
 
 (def archive-job-sql
   (memoize
     (fn [archived-job-table job-table]
       (format
-        "INSERT INTO %s (job_id, queue, job_type, payload, attempts, status, enqueued_at, process_at, finished_at)
-         SELECT job_id, queue, job_type, payload, attempts + 1, ?, enqueued_at, process_at, ?
+        "INSERT INTO %s (job_id, company_id, queue, job_type, payload, result, attempts, status, enqueued_at, process_at, finished_at)
+         SELECT job_id, company_id, queue, job_type, payload, ?, attempts + 1, ?, enqueued_at, process_at, ?
          FROM %s
          WHERE job_id = ?"
         archived-job-table job-table))))
 
 (defn archive-job!
   [^Connection conn
-   {::keys [job-table archived-job-table]}
+   {::keys [job-table archived-job-table serializer]}
    job-id
    status
-   finished-at]
+   finished-at
+   result]
   (with-open [stmt (.prepareStatement conn (archive-job-sql archived-job-table job-table))]
     (doto stmt
-      (.setString 1 (str status))
-      (.setTimestamp 2 (Timestamp/from ^Instant finished-at))
-      (.setObject 3 job-id)
+      (.setString 1 (p/encode serializer result))
+      (.setString 2 (str status))
+      (.setTimestamp 3 (Timestamp/from ^Instant finished-at))
+      (.setObject 4 job-id)
       (.executeUpdate))))
 
 (def delete-job-sql

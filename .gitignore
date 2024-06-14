@@ -2,3 +2,5 @@
 .nrepl-port
 .portal/
 target/
+.clj-kondo/
+.lsp/

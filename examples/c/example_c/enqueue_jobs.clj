@@ -12,10 +12,11 @@
     (examples/preamble ds)
     (println "Adding new blocking job to :proletarian/default queue:")
     (let [conn (jdbc/get-connection ds)
+          company-id (random-uuid)
           job-type ::blocking-job
           payload {:sleep-ms  10000
                    :timestamp (Instant/now)}
-          job-id (job/enqueue! conn job-type payload)]
+          job-id (job/enqueue! conn company-id job-type payload)]
       (puget/cprint {:job-id   job-id
                      :job-type ::blocking-job
                      :payload  payload}))))
@@ -27,10 +28,11 @@
     (examples/preamble ds)
     (println "Adding new time-consuming job to :proletarian/default queue:")
     (let [conn (jdbc/get-connection ds)
+          company-id (random-uuid)
           job-type ::cpu-bound-job
           payload {:run-ms    10000
                    :timestamp (Instant/now)}
-          job-id (job/enqueue! conn job-type payload)]
+          job-id (job/enqueue! conn company-id job-type payload)]
       (puget/cprint {:job-id   job-id
                      :job-type ::blocking-job
                      :payload  payload}))))

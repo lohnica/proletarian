@@ -13,33 +13,34 @@
 (deftest enqueue!-test
   (testing "return value"
     (with-redefs [db/enqueue! (constantly nil)]
-      (is (uuid? (sut/enqueue! conn-stub :foo {}))
+      (is (uuid? (sut/enqueue! conn-stub (random-uuid) :foo {}))
           "returns a job-id (UUID)")
 
       (let [job-id (random-uuid)]
-        (is (= job-id (sut/enqueue! conn-stub :foo {} :proletarian/uuid-fn (constantly job-id)))
+        (is (= job-id (sut/enqueue! conn-stub (random-uuid) :foo {} :proletarian/uuid-fn (constantly job-id)))
             "returns a job-id from the provided uuid-fn"))))
 
   (testing "assertions"
     (is (thrown? AssertionError
-                 (sut/enqueue! conn-stub :foo {} :proletarian/uuid-fn (constantly "not-a-uuid")))
+                 (sut/enqueue! conn-stub (random-uuid) :foo {} :proletarian/uuid-fn (constantly "not-a-uuid")))
         "throws when job-id is not a UUID")
 
     (is (thrown? AssertionError
-                 (sut/enqueue! :invalid-conn :foo {}))
+                 (sut/enqueue! :invalid-conn (random-uuid) :foo {}))
         "throws when conn is not a Connection")
 
     (is (thrown? AssertionError
-                 (sut/enqueue! conn-stub :foo {} :proletarian/serializer :not-a-serializer))
+                 (sut/enqueue! conn-stub (random-uuid) :foo {} :proletarian/serializer :not-a-serializer))
         "throws when the serializer is not a Serializer"))
 
   (testing "calling db/enqueue"
     (let [spy (volatile! ::not-called)
           serializer (reify p/Serializer)
           job-id (random-uuid)
+          company-id (random-uuid)
           clock (Clock/fixed (Instant/now) (ZoneId/systemDefault))]
       (with-redefs [db/enqueue! (fn [& args] (vreset! spy args))]
-        (sut/enqueue! conn-stub :foo [:the-payload]
+        (sut/enqueue! conn-stub company-id :foo [:the-payload]
                       :proletarian/serializer serializer
                       :proletarian/uuid-fn (constantly job-id)
                       :proletarian/clock clock))
@@ -51,6 +52,7 @@
                db-opts')
             "passes the database options")
         (is (= #:proletarian.job{:job-id job-id
+                                 :company-id company-id
                                  :queue db/DEFAULT_QUEUE
                                  :job-type :foo
                                  :payload [:the-payload]

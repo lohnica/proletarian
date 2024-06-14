@@ -2,6 +2,7 @@ CREATE SCHEMA IF NOT EXISTS proletarian;
 
 CREATE TABLE IF NOT EXISTS proletarian.job (
     job_id      UUID PRIMARY KEY,   -- job id, generated and returned by proletarian.job/enqueue!
+    company_id  UUID      NOT NULL, -- company (client) id
     queue       TEXT      NOT NULL, -- queue name
     job_type    TEXT      NOT NULL, -- job type
     payload     TEXT      NOT NULL, -- Transit-encoded job data
@@ -12,9 +13,11 @@ CREATE TABLE IF NOT EXISTS proletarian.job (
 
 CREATE TABLE IF NOT EXISTS proletarian.archived_job (
     job_id      UUID PRIMARY KEY,   -- Copied from job record.
+    company_id  UUID      NOT NULL, -- Copied from job record.
     queue       TEXT      NOT NULL, -- Copied from job record.
     job_type    TEXT      NOT NULL, -- Copied from job record.
     payload     TEXT      NOT NULL, -- Copied from job record.
+    result      TEXT      NOT NULL, -- Transit-encoded job result
     attempts    INTEGER   NOT NULL, -- Copied from job record.
     enqueued_at TIMESTAMP NOT NULL, -- Copied from job record.
     process_at  TIMESTAMP NOT NULL, -- Copied from job record (data for the last run only)

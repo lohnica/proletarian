@@ -64,6 +64,7 @@
       (spec.gen/int))))
 
 (spec/def :proletarian.job/job-id uuid?)
+(spec/def :proletarian.job/company-id uuid?)
 (spec/def :proletarian.job/queue keyword?)
 (spec/def :proletarian.job/job-type keyword?)
 (spec/def :proletarian.job/payload map?)
@@ -75,6 +76,7 @@
 
 (spec/def :proletarian/job
   (spec/keys :req [:proletarian.job/job-id
+                   :proletarian.job/company-id
                    :proletarian.job/queue
                    :proletarian.job/job-type
                    :proletarian.job/payload
@@ -108,6 +110,7 @@
                    (update :proletarian.job/enqueued-at #(Timestamp/from ^Instant %))
                    (update :proletarian.job/process-at #(Timestamp/from ^Instant %))
                    (set/rename-keys {:proletarian.job/job-id :job/job_id
+                                     :proletarian.job/company-id :job/company_id
                                      :proletarian.job/queue :job/queue
                                      :proletarian.job/job-type :job/job_type
                                      :proletarian.job/payload :job/payload
@@ -180,9 +183,10 @@
     (fn [conn]
       (let [job (gen-job-past)
             job-id (:proletarian.job/job-id job)
-            now (Instant/now)]
+            now (Instant/now)
+            result {:foo 42}]
         (db/enqueue! conn config job)
-        (db/archive-job! conn config job-id :success now)
+        (db/archive-job! conn config job-id :success now result)
         (is (= (-> job
                    (update :proletarian.job/queue str)
                    (update :proletarian.job/job-type str)
@@ -191,14 +195,17 @@
                    (update :proletarian.job/enqueued-at #(Timestamp/from ^Instant %))
                    (update :proletarian.job/process-at #(Timestamp/from ^Instant %))
                    (assoc :archived_job/status (str :success)
-                          :archived_job/finished_at (Timestamp/from now))
+                          :archived_job/finished_at (Timestamp/from now)
+                          :archived_job/result (p/encode (::db/serializer config) result))
                    (set/rename-keys {:proletarian.job/job-id :archived_job/job_id
+                                     :proletarian.job/company-id :archived_job/company_id
                                      :proletarian.job/queue :archived_job/queue
                                      :proletarian.job/job-type :archived_job/job_type
                                      :proletarian.job/payload :archived_job/payload
                                      :proletarian.job/attempts :archived_job/attempts
                                      :proletarian.job/enqueued-at :archived_job/enqueued_at
-                                     :proletarian.job/process-at :archived_job/process_at}))
+                                     :proletarian.job/process-at :archived_job/process_at
+                                     :proletarian.job/result :archived_job/result}))
                (jdbc/execute-one! conn ["SELECT * FROM proletarian.archived_job WHERE job_id = ?" job-id])))))))
 
 (deftest test-delete-job!
