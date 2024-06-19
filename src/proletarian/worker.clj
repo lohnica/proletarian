@@ -53,7 +53,7 @@
               log (log/wrap log {:job-id job-id :company-id company-id :job-type job-type :attempt attempts})]
           (try
             (log ::handling-job)
-            (let [response (handler-fn job-type payload)]
+            (let [response (handler-fn company-id job-type payload)]
               (log ::job-finished)
               (db/archive-job! conn config job-id :success (Instant/now (::clock config)) response))
             (db/delete-job! conn config job-id)
